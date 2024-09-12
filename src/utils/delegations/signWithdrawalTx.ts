@@ -1,14 +1,12 @@
-import { Transaction, networks } from "bitcoinjs-lib";
 import {
+  Phase1Staking,
   PsbtTransactionResult,
-  withdrawEarlyUnbondedTransaction,
-  withdrawTimelockUnbondedTransaction,
-} from "btc-staking-ts";
+} from "@babylonlabs-io/btc-staking-ts";
+import { Transaction, networks } from "bitcoinjs-lib";
 
 import { getGlobalParams } from "@/app/api/getGlobalParams";
 import { SignPsbtTransaction } from "@/app/common/utils/psbt";
 import { Delegation as DelegationInterface } from "@/app/types/delegations";
-import { apiDataToStakingScripts } from "@/utils/apiDataToStakingScripts";
 import { getCurrentGlobalParamsVersion } from "@/utils/globalParams";
 
 import { getFeeRateFromMempool } from "../getFeeRateFromMempool";
@@ -63,49 +61,28 @@ export const signWithdrawalTx = async (
     throw new Error("Current version not found");
   }
 
-  // Recreate the staking scripts
-  const {
-    timelockScript,
-    slashingScript,
-    unbondingScript,
-    unbondingTimelockScript,
-  } = apiDataToStakingScripts(
-    delegation.finalityProviderPkHex,
-    delegation.stakingTx.timelock,
-    globalParamsWhenStaking,
-    publicKeyNoCoord,
-  );
-
   const feeRate = getFeeRateFromMempool(fees);
+  const phase1Staking = new Phase1Staking(btcWalletNetwork, {
+    address,
+    publicKeyHex: publicKeyNoCoord,
+  });
 
   // Create the withdrawal transaction
   let withdrawPsbtTxResult: PsbtTransactionResult;
   if (delegation?.unbondingTx) {
-    // Withdraw funds from an unbonding transaction that was submitted for early unbonding and the unbonding period has passed
-    withdrawPsbtTxResult = withdrawEarlyUnbondedTransaction(
-      {
-        unbondingTimelockScript,
-        slashingScript,
-      },
+    withdrawPsbtTxResult = phase1Staking.createWithdrawEarlyUnbondedTransaction(
+      globalParamsWhenStaking,
+      delegation,
       Transaction.fromHex(delegation.unbondingTx.txHex),
-      address,
-      btcWalletNetwork,
       feeRate.defaultFeeRate,
     );
   } else {
-    // Withdraw funds from a staking transaction in which the timelock naturally expired
-    withdrawPsbtTxResult = withdrawTimelockUnbondedTransaction(
-      {
-        timelockScript,
-        slashingScript,
-        unbondingScript,
-      },
-      Transaction.fromHex(delegation.stakingTx.txHex),
-      address,
-      btcWalletNetwork,
-      feeRate.defaultFeeRate,
-      delegation.stakingTx.outputIndex,
-    );
+    withdrawPsbtTxResult =
+      phase1Staking.createWithdrawTimelockUnbondedTransaction(
+        globalParamsWhenStaking,
+        delegation,
+        feeRate.defaultFeeRate,
+      );
   }
 
   // Sign the withdrawal transaction

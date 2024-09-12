@@ -1,5 +1,5 @@
+import { initBTCCurve } from "@babylonlabs-io/btc-staking-ts";
 import { Psbt, Transaction } from "bitcoinjs-lib";
-import { initBTCCurve } from "btc-staking-ts";
 
 import { signUnbondingTx } from "@/utils/delegations/signUnbondingTx";
 
@@ -36,6 +36,8 @@ describe("signUnbondingTx", () => {
     stakerKeys,
   );
 
+  const address = dataGenerator.getAddressAndScriptPubKey(stakerKeys.publicKey);
+
   const signedPsbtTx = signedPsbt.extractTransaction();
 
   const mockedDelegationApi = [
@@ -70,6 +72,7 @@ describe("signUnbondingTx", () => {
       signUnbondingTx(
         randomTxId,
         [],
+        address.nativeSegwit.address,
         stakerKeys.noCoordPublicKey,
         network,
         mockedSignPsbtTx,
@@ -85,6 +88,7 @@ describe("signUnbondingTx", () => {
       signUnbondingTx(
         randomTxId,
         delegationApi,
+        address.taproot.address,
         stakerKeys.noCoordPublicKey,
         network,
         mockedSignPsbtTx,
@@ -104,6 +108,7 @@ describe("signUnbondingTx", () => {
       signUnbondingTx(
         randomTxId,
         mockedDelegationApi,
+        address.nativeSegwit.address,
         stakerKeys.noCoordPublicKey,
         network,
         mockedSignPsbtTx,
@@ -128,6 +133,7 @@ describe("signUnbondingTx", () => {
       signUnbondingTx(
         randomTxId,
         mockedDelegationApi,
+        address.nativeSegwit.address,
         stakerKeys.noCoordPublicKey,
         network,
         mockedSignPsbtTx,
@@ -162,6 +168,7 @@ describe("signUnbondingTx", () => {
       signUnbondingTx(
         randomTxId,
         delegationApi,
+        address.nativeSegwit.address,
         stakerKeys.noCoordPublicKey,
         network,
         mockedSignPsbtTx,
@@ -188,6 +195,7 @@ describe("signUnbondingTx", () => {
       signUnbondingTx(
         randomTxId,
         mockedDelegationApi,
+        address.taproot.address,
         stakerKeys.noCoordPublicKey,
         network,
         mockedSignPsbtTx,
@@ -216,6 +224,7 @@ describe("signUnbondingTx", () => {
     const { unbondingTxHex, delegation } = await signUnbondingTx(
       randomTxId,
       mockedDelegationApi,
+      address.taproot.address,
       stakerKeys.noCoordPublicKey,
       network,
       mockedSignPsbtTx,

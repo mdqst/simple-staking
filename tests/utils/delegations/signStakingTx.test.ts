@@ -1,4 +1,4 @@
-import { initBTCCurve } from "btc-staking-ts";
+import { initBTCCurve } from "@babylonlabs-io/btc-staking-ts";
 
 import { signStakingTx } from "@/utils/delegations/signStakingTx";
 
@@ -74,8 +74,6 @@ describe("utils/delegations/signStakingTx", () => {
       expect(btcWallet.pushTx).toHaveBeenCalled();
       // check the signed transaction hex
       expect(result.stakingTxHex).toBe(txHex);
-      // check the staking term
-      expect(result.stakingTerm).toBe(randomStakingTimeBlocks);
     });
 
     it("should throw an error when signing a staking transaction", async () => {

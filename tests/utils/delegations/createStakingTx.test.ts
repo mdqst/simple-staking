@@ -1,4 +1,4 @@
-import { initBTCCurve } from "btc-staking-ts";
+import { initBTCCurve } from "@babylonlabs-io/btc-staking-ts";
 
 import { createStakingTx } from "@/utils/delegations/signStakingTx";
 
@@ -31,20 +31,18 @@ describe("utils/delegations/createStakingTx", () => {
       const testTermDescription = isFixed ? "fixed term" : "variable term";
 
       it("should successfully create a staking transaction", () => {
-        const { stakingFeeSat, stakingTerm, unsignedStakingPsbt } =
-          createStakingTx(
-            randomParam,
-            randomStakingAmount,
-            randomStakingTimeBlocks,
-            randomFpKeys.noCoordPublicKey,
-            network,
-            stakerTaprootAddress,
-            randomStakerKeys.noCoordPublicKey,
-            feeRate,
-            randomInputUTXOs,
-          );
+        const { stakingFeeSat, unsignedStakingPsbt } = createStakingTx(
+          randomParam,
+          randomStakingAmount,
+          randomStakingTimeBlocks,
+          randomFpKeys.noCoordPublicKey,
+          network,
+          stakerTaprootAddress,
+          randomStakerKeys.noCoordPublicKey,
+          feeRate,
+          randomInputUTXOs,
+        );
 
-        expect(stakingTerm).toBe(randomStakingTimeBlocks);
         const matchedStakingOutput = unsignedStakingPsbt.txOutputs.find(
           (output) => {
             return output.value === randomStakingAmount;
@@ -60,20 +58,18 @@ describe("utils/delegations/createStakingTx", () => {
           1, // make it a single utxo so we always have change
           scriptPubKey,
         );
-        const { stakingFeeSat, stakingTerm, unsignedStakingPsbt } =
-          createStakingTx(
-            randomParam,
-            randomStakingAmount,
-            randomStakingTimeBlocks,
-            randomFpKeys.noCoordPublicKey,
-            network,
-            stakerTaprootAddress,
-            randomStakerKeys.noCoordPublicKey,
-            feeRate,
-            utxo,
-          );
+        const { stakingFeeSat, unsignedStakingPsbt } = createStakingTx(
+          randomParam,
+          randomStakingAmount,
+          randomStakingTimeBlocks,
+          randomFpKeys.noCoordPublicKey,
+          network,
+          stakerTaprootAddress,
+          randomStakerKeys.noCoordPublicKey,
+          feeRate,
+          utxo,
+        );
 
-        expect(stakingTerm).toBe(randomStakingTimeBlocks);
         const matchedStakingOutput = unsignedStakingPsbt.txOutputs.find(
           (output) => {
             return output.value === randomStakingAmount;

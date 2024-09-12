@@ -6,7 +6,7 @@ export const toLocalStorageDelegation = (
   finalityProviderPkHex: string,
   stakingValueSat: number,
   stakingTxHex: string,
-  timelock: number,
+  // timelock: number,
 ): Delegation => ({
   stakingTxHashHex: stakingTxHashHex,
   stakerPkHex: stakerPkHex,
@@ -18,7 +18,7 @@ export const toLocalStorageDelegation = (
     outputIndex: 0,
     startTimestamp: new Date().toISOString(),
     startHeight: 0,
-    timelock,
+    timelock: 0,
   },
   isOverflow: false,
   unbondingTx: undefined,

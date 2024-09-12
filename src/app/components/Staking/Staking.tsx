@@ -258,7 +258,7 @@ export const Staking: React.FC<StakingProps> = ({
 
       const { currentVersion: globalParamsVersion } = paramWithCtx;
       // Sign the staking transaction
-      const { stakingTxHex, stakingTerm } = await signStakingTx(
+      const { stakingTxHex } = await signStakingTx(
         btcWallet,
         globalParamsVersion,
         stakingAmountSat,
@@ -274,7 +274,7 @@ export const Staking: React.FC<StakingProps> = ({
       queryClient.invalidateQueries({ queryKey: [UTXO_KEY, address] });
       // UI
       handleFeedbackModal("success");
-      handleLocalStorageDelegations(stakingTxHex, stakingTerm);
+      handleLocalStorageDelegations(stakingTxHex);
       handleResetState();
     } catch (error: Error | any) {
       showError({
@@ -298,10 +298,7 @@ export const Staking: React.FC<StakingProps> = ({
   };
 
   // Save the delegation to local storage
-  const handleLocalStorageDelegations = (
-    signedTxHex: string,
-    stakingTerm: number,
-  ) => {
+  const handleLocalStorageDelegations = (signedTxHex: string) => {
     // Get the transaction ID
     const newTxId = Transaction.fromHex(signedTxHex).getId();
 
@@ -320,7 +317,6 @@ export const Staking: React.FC<StakingProps> = ({
             finalityProvider!.btcPk,
             stakingAmountSat,
             signedTxHex,
-            stakingTerm,
           ),
           ...delegations,
         ];

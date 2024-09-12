@@ -18,7 +18,10 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@babylonlabs-io/btc-staking-ts": [
+        "../btc-staking-ts/src" // Relative path from the frontend project to the library's src directory
+      ]
     }
   },
   "include": [

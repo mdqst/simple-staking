@@ -112,6 +112,7 @@ export const Delegations: React.FC<DelegationsProps> = ({
       const { delegation } = await signUnbondingTx(
         id,
         delegationsAPI,
+        address,
         publicKeyNoCoord,
         btcWalletNetwork,
         signPsbtTx,

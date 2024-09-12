@@ -1,12 +1,11 @@
+import { Phase1Staking } from "@babylonlabs-io/btc-staking-ts";
 import { Transaction, networks } from "bitcoinjs-lib";
-import { unbondingTransaction } from "btc-staking-ts";
 
 import { getGlobalParams } from "@/app/api/getGlobalParams";
 import { getUnbondingEligibility } from "@/app/api/getUnbondingEligibility";
 import { postUnbonding } from "@/app/api/postUnbonding";
 import { SignPsbtTransaction } from "@/app/common/utils/psbt";
 import { Delegation as DelegationInterface } from "@/app/types/delegations";
-import { apiDataToStakingScripts } from "@/utils/apiDataToStakingScripts";
 import { getCurrentGlobalParamsVersion } from "@/utils/globalParams";
 
 // Get the staker signature from the unbonding transaction
@@ -25,6 +24,7 @@ const getStakerSignature = (unbondingTx: Transaction): string => {
 export const signUnbondingTx = async (
   id: string,
   delegationsAPI: DelegationInterface[],
+  address: string,
   publicKeyNoCoord: string,
   btcWalletNetwork: networks.Network,
   signPsbtTx: SignPsbtTransaction,
@@ -62,22 +62,15 @@ export const signUnbondingTx = async (
     throw new Error("Current version not found");
   }
 
-  // Recreate the staking scripts
-  const scripts = apiDataToStakingScripts(
-    delegation.finalityProviderPkHex,
-    delegation.stakingTx.timelock,
-    globalParamsWhenStaking,
-    publicKeyNoCoord,
-  );
-
-  // Create the unbonding transaction
-  const { psbt: unsignedUnbondingTx } = unbondingTransaction(
-    scripts,
-    Transaction.fromHex(delegation.stakingTx.txHex),
-    globalParamsWhenStaking.unbondingFeeSat,
-    btcWalletNetwork,
-    delegation.stakingTx.outputIndex,
-  );
+  const phase1Staking = new Phase1Staking(btcWalletNetwork, {
+    address,
+    publicKeyHex: publicKeyNoCoord,
+  });
+  const { psbt: unsignedUnbondingTx } =
+    phase1Staking.createUnbondingTransaction(
+      globalParamsWhenStaking,
+      delegation,
+    );
 
   // Sign the unbonding transaction
   let unbondingTx: Transaction;

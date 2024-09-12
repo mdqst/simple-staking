@@ -1,13 +1,9 @@
+import { Phase1Staking } from "@babylonlabs-io/btc-staking-ts";
 import { Transaction, networks } from "bitcoinjs-lib";
-import { stakingTransaction } from "btc-staking-ts";
 
 import { signPsbtTransaction } from "@/app/common/utils/psbt";
 import { GlobalParamsVersion } from "@/app/types/globalParams";
-import { apiDataToStakingScripts } from "@/utils/apiDataToStakingScripts";
-import { isTaproot } from "@/utils/wallet";
 import { UTXO, WalletProvider } from "@/utils/wallet/wallet_provider";
-
-import { getStakingTerm } from "../getStakingTerm";
 
 import { txFeeSafetyCheck } from "./fee";
 
@@ -26,68 +22,20 @@ export const createStakingTx = (
   feeRate: number,
   inputUTXOs: UTXO[],
 ) => {
-  // Get the staking term, it will ignore the `stakingTimeBlocks` and use the value from params
-  // if the min and max staking time blocks are the same
-  const stakingTerm = getStakingTerm(globalParamsVersion, stakingTimeBlocks);
+  const phase1Staking = new Phase1Staking(btcWalletNetwork, {
+    address,
+    publicKeyHex: publicKeyNoCoord,
+  });
 
-  // Check the staking data
-  if (
-    stakingAmountSat < globalParamsVersion.minStakingAmountSat ||
-    stakingAmountSat > globalParamsVersion.maxStakingAmountSat ||
-    stakingTerm < globalParamsVersion.minStakingTimeBlocks ||
-    stakingTerm > globalParamsVersion.maxStakingTimeBlocks
-  ) {
-    throw new Error("Invalid staking data");
-  }
-
-  if (inputUTXOs.length == 0) {
-    throw new Error("Not enough usable balance");
-  }
-
-  if (feeRate <= 0) {
-    throw new Error("Invalid fee rate");
-  }
-
-  // Create the staking scripts
-  let scripts;
-  try {
-    scripts = apiDataToStakingScripts(
-      finalityProviderPublicKey,
-      stakingTerm,
-      globalParamsVersion,
-      publicKeyNoCoord,
-    );
-  } catch (error: Error | any) {
-    throw new Error(error?.message || "Cannot build staking scripts");
-  }
-
-  // Create the staking transaction
-  let unsignedStakingPsbt;
-  let stakingFeeSat;
-  try {
-    const { psbt, fee } = stakingTransaction(
-      scripts,
-      stakingAmountSat,
-      address,
-      inputUTXOs,
-      btcWalletNetwork,
-      feeRate,
-      isTaproot(address) ? Buffer.from(publicKeyNoCoord, "hex") : undefined,
-      // `lockHeight` is exclusive of the provided value.
-      // For example, if a Bitcoin height of X is provided,
-      // the transaction will be included starting from height X+1.
-      // https://learnmeabitcoin.com/technical/transaction/locktime/
-      globalParamsVersion.activationHeight - 1,
-    );
-    unsignedStakingPsbt = psbt;
-    stakingFeeSat = fee;
-  } catch (error: Error | any) {
-    throw new Error(
-      error?.message || "Cannot build unsigned staking transaction",
-    );
-  }
-
-  return { unsignedStakingPsbt, stakingTerm, stakingFeeSat };
+  const { psbt, fee } = phase1Staking.createStakingTransaction(
+    globalParamsVersion,
+    stakingAmountSat,
+    stakingTimeBlocks,
+    finalityProviderPublicKey,
+    inputUTXOs,
+    feeRate,
+  );
+  return { unsignedStakingPsbt: psbt, stakingFeeSat: fee };
 };
 
 // Sign a staking transaction
@@ -105,9 +53,9 @@ export const signStakingTx = async (
   publicKeyNoCoord: string,
   feeRate: number,
   inputUTXOs: UTXO[],
-): Promise<{ stakingTxHex: string; stakingTerm: number }> => {
+): Promise<{ stakingTxHex: string }> => {
   // Create the staking transaction
-  let { unsignedStakingPsbt, stakingTerm, stakingFeeSat } = createStakingTx(
+  let { unsignedStakingPsbt, stakingFeeSat } = createStakingTx(
     globalParamsVersion,
     stakingAmountSat,
     stakingTimeBlocks,
@@ -137,5 +85,5 @@ export const signStakingTx = async (
   // Broadcast the staking transaction
   await btcWallet.pushTx(stakingTxHex);
 
-  return { stakingTxHex, stakingTerm };
+  return { stakingTxHex };
 };
