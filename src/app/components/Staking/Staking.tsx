@@ -11,8 +11,8 @@ import {
 } from "@/app/common/constants";
 import { LoadingView } from "@/app/components/Loading/Loading";
 import { useError } from "@/app/context/Error/ErrorContext";
-import { useGlobalParams } from "@/app/context/api/GlobalParamsProvider";
 import { useStakingStats } from "@/app/context/api/StakingStatsProvider";
+import { useVersionInfo } from "@/app/context/api/VersionInfo";
 import { useWallet } from "@/app/context/wallet/WalletProvider";
 import { useHealthCheck } from "@/app/hooks/useHealthCheck";
 import { Delegation } from "@/app/types/delegations";
@@ -27,10 +27,6 @@ import {
   signStakingTx,
 } from "@/utils/delegations/signStakingTx";
 import { getFeeRateFromMempool } from "@/utils/getFeeRateFromMempool";
-import {
-  getCurrentGlobalParamsVersion,
-  ParamsWithContext,
-} from "@/utils/globalParams";
 import { isStakingSignReady } from "@/utils/isStakingSignReady";
 import { toLocalStorageDelegation } from "@/utils/local_storage/toLocalStorageDelegation";
 import type { UTXO } from "@/utils/wallet/wallet_provider";
@@ -101,14 +97,13 @@ export const Staking: React.FC<StakingProps> = ({
     useLocalStorage<boolean>("bbn-staking-successFeedbackModalOpened", false);
   const [cancelFeedbackModalOpened, setCancelFeedbackModalOpened] =
     useLocalStorage<boolean>("bbn-staking-cancelFeedbackModalOpened ", false);
-  const [paramWithCtx, setParamWithCtx] = useState<
-    ParamsWithContext | undefined
-  >();
   const [overflow, setOverflow] = useState<OverflowProperties>({
     isHeightCap: false,
     overTheCapRange: false,
     approchingCapRange: false,
   });
+
+  const versionInfo = useVersionInfo();
 
   // Mempool fee rates, comes from the network
   // Fetch fee rates, sat/vB
@@ -134,33 +129,18 @@ export const Staking: React.FC<StakingProps> = ({
 
   const stakingStats = useStakingStats();
 
-  // load global params and calculate the current staking params
-  const globalParams = useGlobalParams();
-  useEffect(() => {
-    if (!btcHeight || !globalParams.data) {
-      return;
-    }
-    const paramCtx = getCurrentGlobalParamsVersion(
-      btcHeight + 1,
-      globalParams.data,
-    );
-    setParamWithCtx(paramCtx);
-  }, [btcHeight, globalParams]);
-
   // Calculate the overflow properties
   useEffect(() => {
-    if (!paramWithCtx || !paramWithCtx.currentVersion || !btcHeight) {
+    if (!versionInfo?.currentVersion || !btcHeight) {
       return;
     }
     const nextBlockHeight = btcHeight + 1;
-    const { stakingCapHeight, stakingCapSat, confirmationDepth } =
-      paramWithCtx.currentVersion;
+    const { stakingCapHeight, stakingCapSat } = versionInfo.currentVersion;
     // Use height based cap than value based cap if it is set
     if (stakingCapHeight) {
       setOverflow({
         isHeightCap: true,
-        overTheCapRange:
-          nextBlockHeight >= stakingCapHeight + confirmationDepth,
+        overTheCapRange: nextBlockHeight > stakingCapHeight,
         /*
           When btc height is approching the staking cap height,
           there is higher chance of overflow due to tx not being included in the next few blocks on time
@@ -180,12 +160,12 @@ export const Staking: React.FC<StakingProps> = ({
           stakingCapSat * OVERFLOW_TVL_WARNING_THRESHOLD < unconfirmedTVLSat,
       });
     }
-  }, [paramWithCtx, btcHeight, stakingStats]);
+  }, [versionInfo, btcHeight, stakingStats]);
 
   const { coinName } = getNetworkConfig();
-  const stakingParams = paramWithCtx?.currentVersion;
-  const firstActivationHeight = paramWithCtx?.firstActivationHeight;
-  const isUpgrading = paramWithCtx?.isApprochingNextVersion;
+  const stakingParams = versionInfo?.currentVersion;
+  const firstActivationHeight = versionInfo?.firstActivationHeight;
+  const isUpgrading = versionInfo?.isApprochingNextVersion;
   const isBlockHeightUnderActivation =
     !stakingParams ||
     (btcHeight &&
@@ -253,13 +233,13 @@ export const Staking: React.FC<StakingProps> = ({
       if (!btcWalletNetwork) throw new Error("Wallet network is not connected");
       if (!finalityProvider)
         throw new Error("Finality provider is not selected");
-      if (!paramWithCtx || !paramWithCtx.currentVersion)
+      if (!versionInfo?.currentVersion)
         throw new Error("Global params not loaded");
       if (!feeRate) throw new Error("Fee rates not loaded");
       if (!availableUTXOs || availableUTXOs.length === 0)
         throw new Error("No available balance");
 
-      const { currentVersion: globalParamsVersion } = paramWithCtx;
+      const { currentVersion: globalParamsVersion } = versionInfo;
       // Sign the staking transaction
       const { stakingTxHex, stakingTerm } = await signStakingTx(
         btcWallet,
@@ -343,7 +323,7 @@ export const Staking: React.FC<StakingProps> = ({
       publicKeyNoCoord &&
       stakingAmountSat &&
       finalityProvider &&
-      paramWithCtx?.currentVersion &&
+      versionInfo?.currentVersion &&
       mempoolFeeRates &&
       availableUTXOs
     ) {
@@ -355,7 +335,7 @@ export const Staking: React.FC<StakingProps> = ({
         const memoizedFeeRate = selectedFeeRate || defaultFeeRate;
         // Calculate the staking fee
         const { stakingFeeSat } = createStakingTx(
-          paramWithCtx.currentVersion,
+          versionInfo.currentVersion,
           stakingAmountSat,
           stakingTimeBlocks,
           finalityProvider.btcPk,
@@ -397,7 +377,7 @@ export const Staking: React.FC<StakingProps> = ({
     stakingAmountSat,
     stakingTimeBlocks,
     finalityProvider,
-    paramWithCtx,
+    versionInfo,
     mempoolFeeRates,
     selectedFeeRate,
     availableUTXOs,
