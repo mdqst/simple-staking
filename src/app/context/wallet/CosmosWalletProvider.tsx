@@ -1,4 +1,8 @@
-import { BroadcastMode } from "@keplr-wallet/types";
+import {
+  BroadcastMode,
+  OfflineAminoSigner,
+  OfflineDirectSigner,
+} from "@keplr-wallet/types";
 import { CosmosProvider } from "@tomo-inc/tomo-wallet-provider";
 import {
   createContext,
@@ -17,6 +21,7 @@ import { useWalletConnection } from "./WalletConnectionProvider";
 
 interface CosmosWalletContextProps {
   bech32Address: string;
+  offlineSigner?: OfflineAminoSigner & OfflineDirectSigner;
   // pubKey: string;
   connected: boolean;
   disconnect: () => void;
@@ -91,6 +96,7 @@ export const CosmosWalletProvider = ({ children }: PropsWithChildren) => {
       connected: Boolean(cosmosWalletProvider),
       disconnect: cosmosDisconnect,
       open,
+      offlineSigner: cosmosWalletProvider.offlineSigner,
       async sendTx(tx: Uint8Array) {
         const result = await cosmosWalletProvider.sendTx(
           tx,

@@ -13,7 +13,6 @@ import { LoadingView } from "@/app/components/Loading/Loading";
 import { useError } from "@/app/context/Error/ErrorContext";
 import { useStakingStats } from "@/app/context/api/StakingStatsProvider";
 import { useBTCWallet } from "@/app/context/wallet/BTCWalletProvider";
-import { useCosmosWallet } from "@/app/context/wallet/CosmosWalletProvider";
 import { useHealthCheck } from "@/app/hooks/useHealthCheck";
 import { useAppState } from "@/app/state";
 import { useDelegationState } from "@/app/state/DelegationState";
@@ -23,10 +22,12 @@ import {
   FinalityProvider as FinalityProviderInterface,
 } from "@/app/types/finalityProviders";
 import { getNetworkConfig } from "@/config/network.config";
+import { paramsMock } from "@/utils/delegations/paramsMock";
 import {
   createStakingTx,
   signStakingTx,
 } from "@/utils/delegations/signStakingTx";
+import { useCreateBtcDelegation } from "@/utils/delegations/staking";
 import { getFeeRateFromMempool } from "@/utils/getFeeRateFromMempool";
 import { isStakingSignReady } from "@/utils/isStakingSignReady";
 import { toLocalStorageDelegation } from "@/utils/local_storage/toLocalStorageDelegation";
@@ -71,12 +72,10 @@ export const Staking = () => {
     network: btcWalletNetwork,
     getNetworkFees,
     signPsbt,
-    signMessageBIP322,
     pushTx,
   } = useBTCWallet();
 
-  const { sendTx: sendBbnTx, bech32Address } = useCosmosWallet();
-
+  const { createBtcDelegation } = useCreateBtcDelegation();
   const disabled = isError;
 
   // Staking form state
@@ -234,11 +233,27 @@ export const Staking = () => {
         throw new Error("No available balance");
 
       // Sign the staking transaction
+
+      // TODO: This is temporary proof of concept code
+      const btcInput = {
+        btcNetwork: btcWalletNetwork,
+        stakerInfo: {
+          address: address,
+          publicKeyNoCoordHex: publicKeyNoCoord,
+        },
+        stakerAddress: address,
+        stakerNocoordPk: publicKeyNoCoord,
+        finalityProviderPublicKey: finalityProvider.btcPk,
+        stakingAmountSat: paramsMock.minStakingAmountSat,
+        stakingTimeBlocks: paramsMock.minStakingTimeBlocks,
+        inputUTXOs: availableUTXOs,
+        feeRate: feeRate,
+        params: paramsMock,
+      };
+      createBtcDelegation(btcInput);
+
       const { stakingTxHex, stakingTerm } = await signStakingTx(
-        signMessageBIP322,
         signPsbt,
-        sendBbnTx,
-        bech32Address,
         pushTx,
         currentVersion,
         stakingAmountSat,

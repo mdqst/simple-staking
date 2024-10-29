@@ -10,6 +10,10 @@ import {
   UTXO,
 } from "@babylonlabs-io/btc-staking-ts";
 import { networks, Psbt, Transaction } from "bitcoinjs-lib";
+import { useCallback } from "react";
+
+import { useBTCWallet } from "@/app/context/wallet/BTCWalletProvider";
+import { useCosmosWallet } from "@/app/context/wallet/CosmosWalletProvider";
 
 export interface BtcStakingInputs {
   btcNetwork: networks.Network;
@@ -24,10 +28,6 @@ export interface BtcStakingInputs {
   params: StakingParams;
 }
 
-export interface BbnStakingInputs {
-  bech32Address: string;
-}
-
 export enum StakingStep {
   Staking = "staking",
   Unbonding = "unbonding",
@@ -37,120 +37,127 @@ export enum StakingStep {
   SubmitBbnTx = "submit-bbn-tx",
 }
 
-export const createBtcDelegation = async (
-  btcInput: BtcStakingInputs,
-  bbnInput: BbnStakingInputs,
-  signBtcPsbt: (step: StakingStep, psbtHex: string) => Promise<string>,
-  signMessageBIP322: (step: StakingStep, message: string) => Promise<string>,
-  sendBbnTx: (step: StakingStep, tx: Uint8Array) => Promise<void>,
-) => {
-  const staking = new Staking(
-    btcInput.btcNetwork,
-    btcInput.stakerInfo,
-    btcInput.params,
-    btcInput.finalityProviderPublicKey,
-    btcInput.stakingTimeBlocks,
-  );
-  // Create Staking Transaction (no need to sign)
-  const { psbt: stakingPsbt } = staking.createStakingTransaction(
-    btcInput.stakingAmountSat,
-    btcInput.inputUTXOs,
-    btcInput.feeRate,
-  );
-  const signedStakingPsbtHex = await signBtcPsbt(
-    StakingStep.Staking,
-    stakingPsbt.toHex(),
-  );
-  // TODO: Temporary solution to get the stakingTx.
-  const stakingTx = Psbt.fromHex(signedStakingPsbtHex).extractTransaction();
-  // Create unbonding tx (no need to sign)
-  const { psbt: unbondingPsbt } = staking.createUnbondingTransaction(stakingTx);
-  // TODO: Temporary solution to get the UnbondingTx.
-  const signedUnbondingPsbtHex = await signBtcPsbt(
-    StakingStep.Unbonding,
-    unbondingPsbt.toHex(),
-  );
-  const unbondingTx = Psbt.fromHex(signedUnbondingPsbtHex).extractTransaction();
+export const useCreateBtcDelegation = () => {
+  const { sendTx, offlineSigner, bech32Address } = useCosmosWallet();
+  const { signPsbt, signMessageBIP322 } = useBTCWallet();
 
-  // Create and signed slashing txs
-  const { psbt: slashingPsbt } =
-    staking.createStakingOutputSlashingTransaction(stakingTx);
-  const signedStakingOutputSlashingPsbtHex = await signBtcPsbt(
-    StakingStep.StakingOutputSlashing,
-    slashingPsbt.toHex(),
+  const createBtcDelegation = useCallback(
+    async (btcInput: BtcStakingInputs) => {
+      const staking = new Staking(
+        btcInput.btcNetwork,
+        btcInput.stakerInfo,
+        btcInput.params,
+        btcInput.finalityProviderPublicKey,
+        btcInput.stakingTimeBlocks,
+      );
+
+      try {
+        // Create and sign staking transaction
+        const { psbt: stakingPsbt } = staking.createStakingTransaction(
+          btcInput.stakingAmountSat,
+          btcInput.inputUTXOs,
+          btcInput.feeRate,
+        );
+        const signedStakingPsbtHex = await signPsbt(stakingPsbt.toHex());
+        const stakingTx =
+          Psbt.fromHex(signedStakingPsbtHex).extractTransaction();
+
+        // Create and sign unbonding transaction
+        const { psbt: unbondingPsbt } =
+          staking.createUnbondingTransaction(stakingTx);
+        const signedUnbondingPsbtHex = await signPsbt(unbondingPsbt.toHex());
+        const unbondingTx = Psbt.fromHex(
+          signedUnbondingPsbtHex,
+        ).extractTransaction();
+
+        // Create slashing transactions and extract signatures
+        const { psbt: slashingPsbt } =
+          staking.createStakingOutputSlashingTransaction(stakingTx);
+        const signedSlashingPsbtHex = await signPsbt(slashingPsbt.toHex());
+        const signedSlashingTx = Psbt.fromHex(
+          signedSlashingPsbtHex,
+        ).extractTransaction();
+        const stakingOutputSignatures =
+          extractSchnorrSignaturesFromTransaction(signedSlashingTx);
+
+        if (!stakingOutputSignatures) {
+          throw new Error(
+            "No signature found in the staking output slashing PSBT",
+          );
+        }
+
+        const { psbt: unbondingSlashingPsbt } =
+          staking.createUnbondingOutputSlashingTransaction(unbondingTx);
+        const signedUnbondingSlashingPsbtHex = await signPsbt(
+          unbondingSlashingPsbt.toHex(),
+        );
+        const signedUnbondingSlashingTx = Psbt.fromHex(
+          signedUnbondingSlashingPsbtHex,
+        ).extractTransaction();
+        const unbondingSignatures = extractSchnorrSignaturesFromTransaction(
+          signedUnbondingSlashingTx,
+        );
+
+        if (!unbondingSignatures) {
+          throw new Error(
+            "No signature found in the unbonding output slashing PSBT",
+          );
+        }
+
+        // Create Proof of Possession
+        const signedBbnAddress = await signMessageBIP322(bech32Address);
+        const proofOfPossession: ProofOfPossessionBTC = {
+          btcSigType: BTCSigType.BIP322,
+          btcSig: Uint8Array.from(Buffer.from(signedBbnAddress, "base64")),
+        };
+
+        // Prepare and send protobuf message
+        const msg: btcstakingtx.MsgCreateBTCDelegation = {
+          stakerAddr: btcInput.stakerAddress,
+          pop: proofOfPossession,
+          btcPk: Uint8Array.from(Buffer.from(btcInput.stakerNocoordPk, "hex")),
+          fpBtcPkList: [
+            Uint8Array.from(
+              Buffer.from(btcInput.finalityProviderPublicKey, "hex"),
+            ),
+          ],
+          stakingTime: btcInput.stakingTimeBlocks,
+          stakingValue: btcInput.stakingAmountSat,
+          stakingTx: Uint8Array.from(
+            Buffer.from(clearTxSignatures(stakingTx).toHex(), "hex"),
+          ),
+          slashingTx: Uint8Array.from(
+            Buffer.from(clearTxSignatures(signedSlashingTx).toHex(), "hex"),
+          ),
+          delegatorSlashingSig: Uint8Array.from(stakingOutputSignatures),
+          unbondingTime: btcInput.params.unbondingTime,
+          unbondingTx: Uint8Array.from(
+            Buffer.from(clearTxSignatures(unbondingTx).toHex(), "hex"),
+          ),
+          unbondingValue: btcInput.params.unbondingFeeSat,
+          unbondingSlashingTx: Uint8Array.from(
+            Buffer.from(
+              clearTxSignatures(signedUnbondingSlashingTx).toHex(),
+              "hex",
+            ),
+          ),
+          delegatorUnbondingSlashingSig: Uint8Array.from(unbondingSignatures),
+          stakingTxInclusionProof: undefined,
+        };
+
+        const protoMsg = {
+          typeUrl: "/babylon.btcstaking.v1.MsgCreateBTCDelegation",
+          value: btcstakingtx.MsgCreateBTCDelegation.encode(msg).finish(),
+        };
+        await sendTx(protoMsg.value);
+      } catch (error) {
+        console.error("Failed to create BTC Delegation:", error);
+      }
+    },
+    [sendTx, offlineSigner, bech32Address, signPsbt, signMessageBIP322],
   );
-  const signedSlashingTx = Psbt.fromHex(
-    signedStakingOutputSlashingPsbtHex,
-  ).extractTransaction();
 
-  const stakingOutputSignatures =
-    extractSchnorrSignaturesFromTransaction(signedSlashingTx);
-  if (!stakingOutputSignatures) {
-    throw new Error("No signature found in the staking output slashing PSBT");
-  }
-
-  const { psbt: slashUnbondingPsbt } =
-    staking.createUnbondingOutputSlashingTransaction(unbondingTx);
-  const signedUnbondingSlashingPsbtHex = await signBtcPsbt(
-    StakingStep.UnbondingOutputSlashing,
-    slashUnbondingPsbt.toHex(),
-  );
-  const signedUnbondingSlashingTx = Psbt.fromHex(
-    signedUnbondingSlashingPsbtHex,
-  ).extractTransaction();
-
-  const unbondingSignatures = extractSchnorrSignaturesFromTransaction(
-    signedUnbondingSlashingTx,
-  );
-  if (!unbondingSignatures) {
-    throw new Error("No signature found in the unbonding output slashing PSBT");
-  }
-
-  // Sign the BBN address
-  const signedBbnAddress = await signMessageBIP322(
-    StakingStep.ProofOfPossession,
-    bbnInput.bech32Address,
-  );
-
-  // TODO: Move it outside
-  const proofOfPossession: ProofOfPossessionBTC = {
-    btcSigType: BTCSigType.BIP322,
-    btcSig: Buffer.from(signedBbnAddress, "base64"),
-  };
-
-  const msg: btcstakingtx.MsgCreateBTCDelegation = {
-    stakerAddr: btcInput.stakerAddress,
-    pop: proofOfPossession,
-    btcPk: Uint8Array.from(Buffer.from(btcInput.stakerNocoordPk, "hex")),
-    fpBtcPkList: [
-      Uint8Array.from(Buffer.from(btcInput.finalityProviderPublicKey, "hex")),
-    ],
-    stakingTime: btcInput.stakingTimeBlocks,
-    stakingValue: btcInput.stakingAmountSat,
-    stakingTx: Uint8Array.from(
-      Buffer.from(clearTxSignatures(stakingTx).toHex(), "hex"),
-    ),
-    slashingTx: Uint8Array.from(
-      Buffer.from(clearTxSignatures(signedSlashingTx).toHex(), "hex"),
-    ),
-    delegatorSlashingSig: Uint8Array.from(stakingOutputSignatures),
-    unbondingTime: btcInput.params.unbondingTime,
-    unbondingTx: Uint8Array.from(
-      Buffer.from(clearTxSignatures(unbondingTx).toHex(), "hex"),
-    ),
-    unbondingValue: btcInput.params.unbondingFeeSat,
-    unbondingSlashingTx: Uint8Array.from(
-      Buffer.from(clearTxSignatures(signedUnbondingSlashingTx).toHex(), "hex"),
-    ),
-    delegatorUnbondingSlashingSig: Uint8Array.from(unbondingSignatures),
-    stakingTxInclusionProof: undefined,
-  };
-
-  const protoMsg = {
-    typeUrl: "/babylon.btcstaking.v1.MsgCreateBTCDelegation",
-    value: btcstakingtx.MsgCreateBTCDelegation.encode(msg).finish(),
-  };
-  return sendBbnTx(StakingStep.SubmitBbnTx, protoMsg.value);
+  return { createBtcDelegation };
 };
 
 const extractSchnorrSignaturesFromTransaction = (

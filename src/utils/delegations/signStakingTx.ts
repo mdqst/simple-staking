@@ -9,8 +9,6 @@ import { UTXO } from "@/utils/wallet/btc_wallet_provider";
 import { getStakingTerm } from "../getStakingTerm";
 
 import { txFeeSafetyCheck } from "./fee";
-import { paramsMock } from "./paramsMock";
-import { createBtcDelegation } from "./staking";
 
 // Returns:
 // - unsignedStakingPsbt: the unsigned staking transaction
@@ -96,10 +94,7 @@ export const createStakingTx = (
 // - stakingTxHex: the signed staking transaction
 // - stakingTerm: the staking term
 export const signStakingTx = async (
-  signMessageBIP322: (message: string) => Promise<string>,
   signPsbt: (psbtHex: string) => Promise<string>,
-  sendBbnTx: (tx: Uint8Array) => Promise<void>,
-  bech32Address: string,
   pushTx: any,
   globalParamsVersion: GlobalParamsVersion,
   stakingAmountSat: number,
@@ -111,40 +106,6 @@ export const signStakingTx = async (
   feeRate: number,
   inputUTXOs: UTXO[],
 ): Promise<{ stakingTxHex: string; stakingTerm: number }> => {
-  // TODO: REMOVE THIS
-  const btcInput = {
-    btcNetwork: btcWalletNetwork,
-    stakerInfo: {
-      address: address,
-      publicKeyNoCoordHex: publicKeyNoCoord,
-    },
-    stakerAddress: address,
-    stakerNocoordPk: publicKeyNoCoord,
-    finalityProviderPublicKey: finalityProviderPublicKey,
-    stakingAmountSat: paramsMock.minStakingAmountSat,
-    stakingTimeBlocks: paramsMock.minStakingTimeBlocks,
-    inputUTXOs: inputUTXOs,
-    feeRate: feeRate,
-    params: paramsMock,
-  };
-
-  await createBtcDelegation(
-    btcInput,
-    { bech32Address },
-    async (step, psbtHex) => {
-      console.log(step);
-      return await signPsbt(psbtHex);
-    },
-    async (step, message) => {
-      console.log(step);
-      return await signMessageBIP322(message);
-    },
-    async (step, tx) => {
-      console.log(step);
-      return await sendBbnTx(tx);
-    },
-  );
-
   // Create the staking transaction
   let { unsignedStakingPsbt, stakingTerm, stakingFeeSat } = createStakingTx(
     globalParamsVersion,

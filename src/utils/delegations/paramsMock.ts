@@ -16,7 +16,7 @@ export const paramsMock = {
   slashing: {
     slashingPkScriptHex:
       "d34d787fcef6f3771ad9a6f6d1ad5a6f9d1c73b71e6b6f747fbdb673d6b6e39ef8",
-    slashingRate: 0.1,
-    minSlashingTxFeeSat: 1000,
+    slashingRate: 0.2,
+    minSlashingTxFeeSat: 300,
   },
 };
