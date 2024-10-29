@@ -13,6 +13,7 @@ import { LoadingView } from "@/app/components/Loading/Loading";
 import { useError } from "@/app/context/Error/ErrorContext";
 import { useStakingStats } from "@/app/context/api/StakingStatsProvider";
 import { useBTCWallet } from "@/app/context/wallet/BTCWalletProvider";
+import { useCosmosWallet } from "@/app/context/wallet/CosmosWalletProvider";
 import { useHealthCheck } from "@/app/hooks/useHealthCheck";
 import { useAppState } from "@/app/state";
 import { useDelegationState } from "@/app/state/DelegationState";
@@ -70,9 +71,11 @@ export const Staking = () => {
     network: btcWalletNetwork,
     getNetworkFees,
     signPsbt,
-    getWalletProviderName,
+    signMessageBIP322,
     pushTx,
   } = useBTCWallet();
+
+  const { sendTx: sendBbnTx, bech32Address } = useCosmosWallet();
 
   const disabled = isError;
 
@@ -232,7 +235,10 @@ export const Staking = () => {
 
       // Sign the staking transaction
       const { stakingTxHex, stakingTerm } = await signStakingTx(
+        signMessageBIP322,
         signPsbt,
+        sendBbnTx,
+        bech32Address,
         pushTx,
         currentVersion,
         stakingAmountSat,

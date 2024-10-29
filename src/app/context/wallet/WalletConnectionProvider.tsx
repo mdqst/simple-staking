@@ -18,9 +18,10 @@ import {
 
 import { network } from "@/config/network.config";
 
+import { keplrRegistry } from "./keplr";
+
 // We have to split the connection into two parts
 // so we can use the tomoWalletConnect and tomoModal hooks
-
 export const WalletConnectionProvider = ({ children }: PropsWithChildren) => {
   const { resolvedTheme } = useTheme();
 
@@ -30,14 +31,20 @@ export const WalletConnectionProvider = ({ children }: PropsWithChildren) => {
 
   return (
     <TomoContextProvider
+      chainTypes={["bitcoin", "cosmos"]}
       bitcoinChains={bitcoinChains}
-      multiNetworkConnection={true}
       cosmosChains={[
         {
-          id: 1,
+          id: 2,
           name: "Babylon Devnet",
           type: "cosmos",
-          network: "bbn-dev-5",
+          network: "devnet-2",
+          modularData: keplrRegistry,
+          rpcUrls: {
+            default: {
+              http: ["https://rpc.devnet.babylonlabs.io"],
+            },
+          },
           nativeCurrency: {
             name: "BBN",
             symbol: "BBN",

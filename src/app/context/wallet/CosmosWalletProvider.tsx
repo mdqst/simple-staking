@@ -1,3 +1,5 @@
+import { BroadcastMode } from "@keplr-wallet/types";
+import { CosmosProvider } from "@tomo-inc/tomo-wallet-provider";
 import {
   createContext,
   useCallback,
@@ -15,27 +17,28 @@ import { useWalletConnection } from "./WalletConnectionProvider";
 
 interface CosmosWalletContextProps {
   bech32Address: string;
-  pubKey: string;
+  // pubKey: string;
   connected: boolean;
   disconnect: () => void;
   open: () => void;
-  signArbitrary: (message: string) => Promise<any>;
+  sendTx(tx: Uint8Array): Promise<void>;
 }
 
 const CosmosWalletContext = createContext<CosmosWalletContextProps>({
   bech32Address: "",
-  pubKey: "",
+  // pubKey: "",
   connected: false,
   disconnect: () => {},
   open: () => {},
-  signArbitrary: async () => {},
+  sendTx: async () => {},
 });
 
 export const CosmosWalletProvider = ({ children }: PropsWithChildren) => {
-  const [cosmosWalletProvider, setCosmosWalletProvider] = useState<any>();
+  const [cosmosWalletProvider, setCosmosWalletProvider] =
+    useState<CosmosProvider>();
   const [cosmosBech32Address, setCosmosBech32Address] = useState("");
-  const [cosmosPubKey, setCosmosPubKey] = useState("");
-  const [cosmosChainID, setCosmosChainID] = useState("");
+  // const [cosmosPubKey, setCosmosPubKey] = useState("");
+  // const [cosmosChainID, setCosmosChainID] = useState("");
 
   const { showError } = useError();
   const { open, isConnected, providers } = useWalletConnection();
@@ -43,23 +46,24 @@ export const CosmosWalletProvider = ({ children }: PropsWithChildren) => {
   const cosmosDisconnect = useCallback(() => {
     setCosmosWalletProvider(undefined);
     setCosmosBech32Address("");
-    setCosmosPubKey("");
-    setCosmosChainID("");
+    // setCosmosPubKey("");
+    // setCosmosChainID("");
   }, []);
 
   const connectCosmos = useCallback(async () => {
     if (!providers.cosmosProvider) return;
 
     try {
-      const chainID = providers.cosmosProvider.getChainId();
-      const cosmosInfo =
-        await providers.cosmosProvider.provider.getKey(chainID);
-
-      const { bech32Address, pubKey } = cosmosInfo;
+      // const chainID = providers.cosmosProvider.provider.getChainId();
+      // const cosmosInfo =
+      //   await providers.cosmosProvider.provider.getKey(chainID);
+      await providers.cosmosProvider.connectWallet();
+      const address = await providers.cosmosProvider.getAddress();
+      // const { bech32Address, pubKey } = cosmosInfo;
       setCosmosWalletProvider(providers.cosmosProvider);
-      setCosmosBech32Address(bech32Address);
-      setCosmosPubKey(Buffer.from(pubKey).toString("hex"));
-      setCosmosChainID(chainID);
+      setCosmosBech32Address(address);
+      // setCosmosPubKey(Buffer.from(pubKey).toString("hex"));
+      // setCosmosChainID(chainID);
     } catch (error: any) {
       showError({
         error: {
@@ -71,29 +75,51 @@ export const CosmosWalletProvider = ({ children }: PropsWithChildren) => {
     }
   }, [providers.cosmosProvider, showError]);
 
-  const cosmosContextValue = useMemo(
-    () => ({
+  const cosmosContextValue = useMemo(() => {
+    if (!cosmosWalletProvider) {
+      return {
+        bech32Address: cosmosBech32Address,
+        connected: false,
+        disconnect: cosmosDisconnect,
+        open,
+        sendTx: async () => {},
+      };
+    }
+    return {
       bech32Address: cosmosBech32Address,
-      pubKey: cosmosPubKey,
+      // pubKey: cosmosPubKey,
       connected: Boolean(cosmosWalletProvider),
       disconnect: cosmosDisconnect,
       open,
-      signArbitrary: (message: string) =>
-        cosmosWalletProvider.provider.signArbitrary(
-          cosmosChainID,
-          cosmosBech32Address,
-          message,
-        ),
-    }),
-    [
-      cosmosChainID,
-      cosmosBech32Address,
-      cosmosPubKey,
-      cosmosWalletProvider,
-      cosmosDisconnect,
-      open,
-    ],
-  );
+      async sendTx(tx: Uint8Array) {
+        const result = await cosmosWalletProvider.sendTx(
+          tx,
+          "sync" as BroadcastMode,
+        );
+        // Decode the result
+        const decodedResult = new TextDecoder().decode(result);
+
+        // Try to parse the decoded result as JSON
+        let jsonResult;
+        try {
+          jsonResult = JSON.parse(decodedResult);
+        } catch (error) {
+          throw new Error(`Failed to parse the result: ${decodedResult}`);
+        }
+        if (jsonResult.code !== undefined && jsonResult.code !== 0) {
+          throw new Error(
+            `Failed to send transaction: ${jsonResult.log || jsonResult.rawLog}`,
+          );
+        }
+      },
+    };
+  }, [
+    cosmosBech32Address,
+    // cosmosPubKey,
+    cosmosWalletProvider,
+    cosmosDisconnect,
+    open,
+  ]);
 
   useEffect(() => {
     if (isConnected && providers.state) {

@@ -78,6 +78,7 @@ export abstract class BTCWalletProvider {
    * Signs the given PSBT in hex format.
    * @param psbtHex - The hex string of the unsigned PSBT to sign.
    * @returns A promise that resolves to the hex string of the signed PSBT.
+   * Should be finalized.
    */
   abstract signPsbt(psbtHex: string): Promise<string>;
 
@@ -85,6 +86,7 @@ export abstract class BTCWalletProvider {
    * Signs multiple PSBTs in hex format.
    * @param psbtsHexes - The hex strings of the unsigned PSBTs to sign.
    * @returns A promise that resolves to an array of hex strings, each representing a signed PSBT.
+   * Should be finalized.
    */
   abstract signPsbts(psbtsHexes: string[]): Promise<string[]>;
 
