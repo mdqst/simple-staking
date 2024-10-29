@@ -36,9 +36,9 @@ export const WalletConnectionProvider = ({ children }: PropsWithChildren) => {
       cosmosChains={[
         {
           id: 2,
-          name: "Babylon Devnet",
+          name: "Babylon Devnet 4",
           type: "cosmos",
-          network: "devnet-2",
+          network: "devnet-4",
           modularData: keplrRegistry,
           rpcUrls: {
             default: {

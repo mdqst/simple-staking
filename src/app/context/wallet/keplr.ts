@@ -1,7 +1,7 @@
 // Temporary solution until we have a stable chain registry
 export const keplrRegistry = {
   chainId: "devnet-4",
-  chainName: "Babylon Devnet",
+  chainName: "Babylon Devnet 4",
   chainSymbolImageUrl:
     "https://raw.githubusercontent.com/chainapsis/keplr-chain-registry/main/images/bbn-dev/chain.png",
   rpc: "https://rpc.devnet.babylonlabs.io",

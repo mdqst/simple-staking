@@ -38,7 +38,8 @@ export enum StakingStep {
 }
 
 export const useCreateBtcDelegation = () => {
-  const { sendTx, offlineSigner, bech32Address } = useCosmosWallet();
+  const { connected, bech32Address, getSigningStargateClient } =
+    useCosmosWallet();
   const { signPsbt, signMessageBIP322 } = useBTCWallet();
 
   const createBtcDelegation = useCallback(
@@ -149,12 +150,33 @@ export const useCreateBtcDelegation = () => {
           typeUrl: "/babylon.btcstaking.v1.MsgCreateBTCDelegation",
           value: btcstakingtx.MsgCreateBTCDelegation.encode(msg).finish(),
         };
-        await sendTx(protoMsg.value);
+        if (!connected) {
+          throw new Error("Not connected to a wallet");
+        }
+
+        const stargateClient = await getSigningStargateClient();
+        // estimate gas
+        const gasEstimate = await stargateClient.simulate(
+          bech32Address,
+          [protoMsg],
+          "estimate fee",
+        );
+        const fee = {
+          amount: [{ denom: "ubbn", amount: (gasEstimate * 1.5).toFixed(0) }],
+          gas: gasEstimate.toString(),
+        };
+        // sign it
+        const result = await stargateClient.signAndBroadcast(
+          bech32Address,
+          [protoMsg],
+          fee,
+        );
+        console.log("result", result);
       } catch (error) {
         console.error("Failed to create BTC Delegation:", error);
       }
     },
-    [sendTx, offlineSigner, bech32Address, signPsbt, signMessageBIP322],
+    [bech32Address, signPsbt, signMessageBIP322, getSigningStargateClient],
   );
 
   return { createBtcDelegation };

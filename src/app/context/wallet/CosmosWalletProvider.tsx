@@ -1,3 +1,4 @@
+import { SigningStargateClient } from "@cosmjs/stargate";
 import {
   BroadcastMode,
   OfflineAminoSigner,
@@ -27,6 +28,7 @@ interface CosmosWalletContextProps {
   disconnect: () => void;
   open: () => void;
   sendTx(tx: Uint8Array): Promise<void>;
+  getSigningStargateClient(): Promise<SigningStargateClient>;
 }
 
 const CosmosWalletContext = createContext<CosmosWalletContextProps>({
@@ -36,6 +38,9 @@ const CosmosWalletContext = createContext<CosmosWalletContextProps>({
   disconnect: () => {},
   open: () => {},
   sendTx: async () => {},
+  getSigningStargateClient: async () => {
+    throw new Error("Not implemented");
+  },
 });
 
 export const CosmosWalletProvider = ({ children }: PropsWithChildren) => {
@@ -64,6 +69,7 @@ export const CosmosWalletProvider = ({ children }: PropsWithChildren) => {
       //   await providers.cosmosProvider.provider.getKey(chainID);
       await providers.cosmosProvider.connectWallet();
       const address = await providers.cosmosProvider.getAddress();
+      await providers.cosmosProvider.getSigningStargateClient();
       // const { bech32Address, pubKey } = cosmosInfo;
       setCosmosWalletProvider(providers.cosmosProvider);
       setCosmosBech32Address(address);
@@ -88,6 +94,9 @@ export const CosmosWalletProvider = ({ children }: PropsWithChildren) => {
         disconnect: cosmosDisconnect,
         open,
         sendTx: async () => {},
+        getSigningStargateClient: async () => {
+          throw new Error("Not implemented");
+        },
       };
     }
     return {
@@ -97,6 +106,9 @@ export const CosmosWalletProvider = ({ children }: PropsWithChildren) => {
       disconnect: cosmosDisconnect,
       open,
       offlineSigner: cosmosWalletProvider.offlineSigner,
+      getSigningStargateClient: async () => {
+        return await cosmosWalletProvider.getSigningStargateClient();
+      },
       async sendTx(tx: Uint8Array) {
         const result = await cosmosWalletProvider.sendTx(
           tx,
