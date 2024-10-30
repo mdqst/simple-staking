@@ -25,7 +25,7 @@
     "node": "22.3.0"
   },
   "dependencies": {
-    "@babylonlabs-io/babylon-proto-ts": "^0.0.3",
+    "@babylonlabs-io/babylon-proto-ts": "0.0.3-canary.1",
     "@babylonlabs-io/btc-staking-ts": "0.3.0",
     "@bitcoin-js/tiny-secp256k1-asmjs": "2.2.3",
     "@bitcoinerlab/secp256k1": "^1.1.1",
@@ -35,7 +35,7 @@
     "@scure/bip32": "^1.4.0",
     "@tanstack/react-query": "^5.28.14",
     "@tanstack/react-query-next-experimental": "^5.28.14",
-    "@tomo-inc/wallet-connect-sdk": "0.2.12",
+    "@tomo-inc/wallet-connect-sdk": "0.2.14",
     "@uidotdev/usehooks": "^2.4.1",
     "axios": "^1.7.4",
     "bitcoinjs-lib": "6.1.5",

@@ -1,3 +1,5 @@
+import { btcstakingtx } from "@babylonlabs-io/babylon-proto-ts";
+import { GeneratedType, Registry } from "@cosmjs/proto-signing";
 import { SigningStargateClient } from "@cosmjs/stargate";
 import {
   BroadcastMode,
@@ -69,7 +71,35 @@ export const CosmosWalletProvider = ({ children }: PropsWithChildren) => {
       //   await providers.cosmosProvider.provider.getKey(chainID);
       await providers.cosmosProvider.connectWallet();
       const address = await providers.cosmosProvider.getAddress();
-      await providers.cosmosProvider.getSigningStargateClient();
+
+      // Utility function to create a `GeneratedType` from a Protobuf message type
+      const createGeneratedType = (
+        typeUrl: string,
+        messageType: any,
+      ): GeneratedType => {
+        return {
+          encode: messageType.encode.bind(messageType),
+          decode: messageType.decode.bind(messageType),
+          create: (properties?: Partial<any>): any => {
+            return messageType.fromPartial(properties ?? {});
+          },
+        };
+      };
+
+      const registry = new Registry();
+      // Usage:
+      const MsgCreateBTCDelegationGeneratedType = createGeneratedType(
+        "/babylon.btcstaking.v1.MsgCreateBTCDelegation",
+        btcstakingtx.MsgCreateBTCDelegation,
+      );
+
+      // Register with the registry
+      registry.register(
+        "/babylon.btcstaking.v1.MsgCreateBTCDelegation",
+        MsgCreateBTCDelegationGeneratedType,
+      );
+
+      await providers.cosmosProvider.getSigningStargateClient({ registry });
       // const { bech32Address, pubKey } = cosmosInfo;
       setCosmosWalletProvider(providers.cosmosProvider);
       setCosmosBech32Address(address);

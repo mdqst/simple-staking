@@ -38,7 +38,7 @@ export enum StakingStep {
 }
 
 export const useCreateBtcDelegation = () => {
-  const { connected, bech32Address, getSigningStargateClient } =
+  const { sendTx, connected, bech32Address, getSigningStargateClient } =
     useCosmosWallet();
   const { signPsbt, signMessageBIP322 } = useBTCWallet();
 
@@ -114,7 +114,7 @@ export const useCreateBtcDelegation = () => {
 
         // Prepare and send protobuf message
         const msg: btcstakingtx.MsgCreateBTCDelegation = {
-          stakerAddr: btcInput.stakerAddress,
+          stakerAddr: bech32Address,
           pop: proofOfPossession,
           btcPk: Uint8Array.from(Buffer.from(btcInput.stakerNocoordPk, "hex")),
           fpBtcPkList: [
@@ -146,9 +146,13 @@ export const useCreateBtcDelegation = () => {
           stakingTxInclusionProof: undefined,
         };
 
+        // const protoMsg = {
+        //   typeUrl: "/babylon.btcstaking.v1.MsgCreateBTCDelegation",
+        //   value: btcstakingtx.MsgCreateBTCDelegation.encode(msg).finish(),
+        // };
         const protoMsg = {
           typeUrl: "/babylon.btcstaking.v1.MsgCreateBTCDelegation",
-          value: btcstakingtx.MsgCreateBTCDelegation.encode(msg).finish(),
+          value: msg,
         };
         if (!connected) {
           throw new Error("Not connected to a wallet");
@@ -156,11 +160,12 @@ export const useCreateBtcDelegation = () => {
 
         const stargateClient = await getSigningStargateClient();
         // estimate gas
-        const gasEstimate = await stargateClient.simulate(
-          bech32Address,
-          [protoMsg],
-          "estimate fee",
-        );
+        // const gasEstimate = await stargateClient.simulate(
+        //   bech32Address,
+        //   [protoMsg],
+        //   "estimate fee",
+        // );
+        const gasEstimate = 500;
         const fee = {
           amount: [{ denom: "ubbn", amount: (gasEstimate * 1.5).toFixed(0) }],
           gas: gasEstimate.toString(),

@@ -40,11 +40,7 @@ export const WalletConnectionProvider = ({ children }: PropsWithChildren) => {
           type: "cosmos",
           network: "devnet-4",
           modularData: keplrRegistry,
-          rpcUrls: {
-            default: {
-              http: ["https://rpc.devnet.babylonlabs.io"],
-            },
-          },
+          rpc: "https://rpc.devnet.babylonlabs.io",
           nativeCurrency: {
             name: "BBN",
             symbol: "BBN",
