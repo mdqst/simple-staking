@@ -205,7 +205,14 @@ export const useCreateBtcDelegation = () => {
         console.error("Failed to create BTC Delegation:", error);
       }
     },
-    [bech32Address, signPsbt, signMessageBIP322, getSigningStargateClient],
+    [
+      bech32Address,
+      signPsbt,
+      signMessageBIP322,
+      getSigningStargateClient,
+      connected,
+      getPublicKeyHex,
+    ],
   );
 
   return { createBtcDelegation };
