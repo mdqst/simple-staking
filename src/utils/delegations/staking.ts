@@ -43,7 +43,8 @@ export enum StakingStep {
 export const useCreateBtcDelegation = () => {
   const { connected, bech32Address, getSigningStargateClient } =
     useCosmosWallet();
-  const { signPsbt, signMessageBIP322, getPublicKeyHex } = useBTCWallet();
+  const { signPsbt, signMessageBIP322, getPublicKeyHex, publicKeyNoCoord } =
+    useBTCWallet();
 
   const createBtcDelegation = useCallback(
     async (btcInput: BtcStakingInputs) => {
@@ -110,26 +111,35 @@ export const useCreateBtcDelegation = () => {
 
         // Create Proof of Possession
         const addrBytes = fromBech32(bech32Address).data;
-        const hashedMessage = createHash("sha256").update(addrBytes).digest();
+        const hashedMessage = createHash("sha256")
+          .update(addrBytes)
+          .digest("hex");
         const signedBbnAddress = await signMessageBIP322(
-          hashedMessage.toString("hex"),
+          // hashedMessage.toString("hex"),
+          hashedMessage,
         );
 
         // Build the BIP322 format data
         const btcPk = await getPublicKeyHex();
-        console.log(btcPk);
         const { address: btcAddress } = payments.p2wpkh({
           pubkey: Buffer.from(btcPk, "hex"),
           network: btcInput.btcNetwork,
         });
         // Construct the BIP322Sig message using `fromPartial`
+        console.log("btc pk", btcPk);
+        // console.log("publicKeyNoCoord", publicKeyNoCoord);
+        console.log("bech32Address", bech32Address);
+        console.log("prefix: ", fromBech32(bech32Address).prefix);
+        console.log("address", btcAddress);
+        console.log("sig", signedBbnAddress);
+
         const bip322SigMessage: BIP322Sig = BIP322Sig.fromJSON({
           address: btcAddress!,
           sig: signedBbnAddress,
         });
         // Encode to Uint8Array
         const btcSigBytes = BIP322Sig.encode(bip322SigMessage).finish();
-        console.log(uint8ArrayToHex(btcSigBytes));
+        console.log("btcSigBytes", uint8ArrayToBase64(btcSigBytes));
         const proofOfPossession: ProofOfPossessionBTC = {
           btcSigType: BTCSigType.BIP322,
           btcSig: btcSigBytes,
@@ -247,4 +257,14 @@ function uint8ArrayToHex(uint8Array: Uint8Array): string {
   return Array.from(uint8Array)
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
+}
+
+function uint8ArrayToBase64(uint8Array: Uint8Array) {
+  // Convert Uint8Array to a binary string
+  const binaryString = Array.from(uint8Array, (byte) =>
+    String.fromCharCode(byte),
+  ).join("");
+
+  // Convert binary string to Base64
+  return btoa(binaryString);
 }
