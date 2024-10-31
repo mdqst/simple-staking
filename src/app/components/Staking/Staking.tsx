@@ -23,10 +23,7 @@ import {
 } from "@/app/types/finalityProviders";
 import { getNetworkConfig } from "@/config/network.config";
 import { paramsMock } from "@/utils/delegations/paramsMock";
-import {
-  createStakingTx,
-  signStakingTx,
-} from "@/utils/delegations/signStakingTx";
+import { createStakingTx } from "@/utils/delegations/signStakingTx";
 import { useCreateBtcDelegation } from "@/utils/delegations/staking";
 import { getFeeRateFromMempool } from "@/utils/getFeeRateFromMempool";
 import { isStakingSignReady } from "@/utils/isStakingSignReady";
@@ -252,24 +249,24 @@ export const Staking = () => {
       };
       createBtcDelegation(btcInput);
 
-      const { stakingTxHex, stakingTerm } = await signStakingTx(
-        signPsbt,
-        pushTx,
-        currentVersion,
-        stakingAmountSat,
-        stakingTimeBlocks,
-        finalityProvider.btcPk,
-        btcWalletNetwork,
-        address,
-        publicKeyNoCoord,
-        feeRate,
-        availableUTXOs,
-      );
+      // const { stakingTxHex, stakingTerm } = await signStakingTx(
+      //   signPsbt,
+      //   pushTx,
+      //   currentVersion,
+      //   stakingAmountSat,
+      //   stakingTimeBlocks,
+      //   finalityProvider.btcPk,
+      //   btcWalletNetwork,
+      //   address,
+      //   publicKeyNoCoord,
+      //   feeRate,
+      //   availableUTXOs,
+      // );
       // Invalidate UTXOs
       queryClient.invalidateQueries({ queryKey: [UTXO_KEY, address] });
       // UI
       handleFeedbackModal("success");
-      handleLocalStorageDelegations(stakingTxHex, stakingTerm);
+      // handleLocalStorageDelegations(stakingTxHex, stakingTerm);
       handleResetState();
     } catch (error: Error | any) {
       showError({

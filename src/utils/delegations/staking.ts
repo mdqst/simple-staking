@@ -1,5 +1,6 @@
 import { btcstakingtx } from "@babylonlabs-io/babylon-proto-ts";
 import {
+  BIP322Sig,
   BTCSigType,
   ProofOfPossessionBTC,
 } from "@babylonlabs-io/babylon-proto-ts/dist/generated/babylon/btcstaking/v1/pop";
@@ -9,7 +10,9 @@ import {
   StakingParams,
   UTXO,
 } from "@babylonlabs-io/btc-staking-ts";
-import { networks, Psbt, Transaction } from "bitcoinjs-lib";
+import { fromBech32 } from "@cosmjs/encoding";
+import { networks, payments, Psbt, Transaction } from "bitcoinjs-lib";
+import { createHash } from "crypto";
 import { useCallback } from "react";
 
 import { useBTCWallet } from "@/app/context/wallet/BTCWalletProvider";
@@ -40,7 +43,7 @@ export enum StakingStep {
 export const useCreateBtcDelegation = () => {
   const { connected, bech32Address, getSigningStargateClient } =
     useCosmosWallet();
-  const { signPsbt, signMessageBIP322 } = useBTCWallet();
+  const { signPsbt, signMessageBIP322, getPublicKeyHex } = useBTCWallet();
 
   const createBtcDelegation = useCallback(
     async (btcInput: BtcStakingInputs) => {
@@ -106,10 +109,30 @@ export const useCreateBtcDelegation = () => {
         }
 
         // Create Proof of Possession
-        const signedBbnAddress = await signMessageBIP322(bech32Address);
+        const addrBytes = fromBech32(bech32Address).data;
+        const hashedMessage = createHash("sha256").update(addrBytes).digest();
+        const signedBbnAddress = await signMessageBIP322(
+          hashedMessage.toString("hex"),
+        );
+
+        // Build the BIP322 format data
+        const btcPk = await getPublicKeyHex();
+        console.log(btcPk);
+        const { address: btcAddress } = payments.p2wpkh({
+          pubkey: Buffer.from(btcPk, "hex"),
+          network: btcInput.btcNetwork,
+        });
+        // Construct the BIP322Sig message using `fromPartial`
+        const bip322SigMessage: BIP322Sig = BIP322Sig.fromJSON({
+          address: btcAddress!,
+          sig: signedBbnAddress,
+        });
+        // Encode to Uint8Array
+        const btcSigBytes = BIP322Sig.encode(bip322SigMessage).finish();
+        console.log(uint8ArrayToHex(btcSigBytes));
         const proofOfPossession: ProofOfPossessionBTC = {
-          btcSigType: BTCSigType.BIP340,
-          btcSig: Uint8Array.from(Buffer.from(signedBbnAddress, "base64")),
+          btcSigType: BTCSigType.BIP322,
+          btcSig: btcSigBytes,
         };
 
         // Prepare and send protobuf message
@@ -160,15 +183,16 @@ export const useCreateBtcDelegation = () => {
 
         const stargateClient = await getSigningStargateClient();
         // estimate gas
-        // const gasEstimate = await stargateClient.simulate(
-        //   bech32Address,
-        //   [protoMsg],
-        //   "estimate fee",
-        // );
-        const gasEstimate = 500;
+        const gasEstimate = await stargateClient.simulate(
+          bech32Address,
+          [protoMsg],
+          "estimate fee",
+        );
+        const gasWanted = Math.ceil(gasEstimate * 1.2);
+        // const gasEstimate = 500;
         const fee = {
-          amount: [{ denom: "ubbn", amount: (gasEstimate * 1.5).toFixed(0) }],
-          gas: gasEstimate.toString(),
+          amount: [{ denom: "ubbn", amount: (gasWanted * 0.01).toFixed(0) }],
+          gas: gasWanted.toString(),
         };
         // sign it
         const result = await stargateClient.signAndBroadcast(
@@ -211,3 +235,9 @@ const clearTxSignatures = (tx: Transaction): Transaction => {
   });
   return tx;
 };
+
+function uint8ArrayToHex(uint8Array: Uint8Array): string {
+  return Array.from(uint8Array)
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}

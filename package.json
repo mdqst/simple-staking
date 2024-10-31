@@ -25,8 +25,7 @@
     "node": "22.3.0"
   },
   "dependencies": {
-    "@babylonlabs-io/babylon-proto-ts": "0.0.3-canary.1",
-    "@babylonlabs-io/btc-staking-ts": "0.3.0",
+    "@babylonlabs-io/btc-staking-ts": "0.4.0-canary.2",
     "@bitcoin-js/tiny-secp256k1-asmjs": "2.2.3",
     "@bitcoinerlab/secp256k1": "^1.1.1",
     "@keystonehq/animated-qr": "^0.8.6",
