@@ -38,7 +38,7 @@ export enum StakingStep {
 }
 
 export const useCreateBtcDelegation = () => {
-  const { sendTx, connected, bech32Address, getSigningStargateClient } =
+  const { connected, bech32Address, getSigningStargateClient } =
     useCosmosWallet();
   const { signPsbt, signMessageBIP322 } = useBTCWallet();
 
@@ -108,7 +108,7 @@ export const useCreateBtcDelegation = () => {
         // Create Proof of Possession
         const signedBbnAddress = await signMessageBIP322(bech32Address);
         const proofOfPossession: ProofOfPossessionBTC = {
-          btcSigType: BTCSigType.BIP322,
+          btcSigType: BTCSigType.BIP340,
           btcSig: Uint8Array.from(Buffer.from(signedBbnAddress, "base64")),
         };
 

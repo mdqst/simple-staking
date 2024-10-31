@@ -14,8 +14,7 @@ export const paramsMock = {
   maxStakingTimeBlocks: 60000,
   minStakingTimeBlocks: 100,
   slashing: {
-    slashingPkScriptHex:
-      "d34d787fcef6f3771ad9a6f6d1ad5a6f9d1c73b71e6b6f747fbdb673d6b6e39ef8",
+    slashingPkScriptHex: "0014f87283ca2ab20a1ab50cc7cea290f722c9a24574",
     slashingRate: 0.2,
     minSlashingTxFeeSat: 300,
   },
